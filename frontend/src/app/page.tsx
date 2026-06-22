@@ -90,10 +90,10 @@ export default function Home() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [captions, setCaptions] = useState<Caption[]>([]);
   const [serviceStatus, setServiceStatus] = useState<ServiceStatus | null>(null);
-  const [sourceLanguage, setSourceLanguage] = useState("ja");
+  const [sourceLanguage, setSourceLanguage] = useState("en");
   const [targetLanguage, setTargetLanguage] = useState("ja");
   const [captureMode, setCaptureMode] = useState<CaptureMode>("microphone");
-  const [translateEnabled, setTranslateEnabled] = useState(false);
+  const [translateEnabled, setTranslateEnabled] = useState(true);
   const [chunkSeconds, setChunkSeconds] = useState(6);
   const [inputGain, setInputGain] = useState(4);
   const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>([]);
