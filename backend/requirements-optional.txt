@@ -1,0 +1,4 @@
+# Optional local AI engines.
+# Install these when you want real offline transcription and translation.
+faster-whisper==1.1.1
+argostranslate==1.9.6
