@@ -58,6 +58,12 @@ def init_db() -> None:
             ON captions(session_id, chunk_index, id)
             """
         )
+        db.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_captions_unique_chunk
+            ON captions(session_id, chunk_index)
+            """
+        )
 
 
 def ensure_session(
@@ -99,6 +105,16 @@ def insert_caption(
 ) -> dict[str, Any]:
     now = utc_now()
     with connect() as db:
+        existing = db.execute(
+            """
+            SELECT * FROM captions
+            WHERE session_id = ? AND chunk_index = ?
+            """,
+            (session_id, chunk_index),
+        ).fetchone()
+        if existing:
+            return dict(existing)
+
         cursor = db.execute(
             """
             INSERT INTO captions (
