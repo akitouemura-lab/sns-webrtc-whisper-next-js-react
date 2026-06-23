@@ -38,10 +38,53 @@ app.add_middleware(
 
 
 EXPORT_FORMATS = {"txt", "md", "srt", "vtt"}
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+ALLOWED_AUDIO_EXTENSIONS = {".webm", ".mp4", ".m4a", ".wav", ".mp3", ".ogg"}
+ALLOWED_AUDIO_MIME_TYPES = {
+    "audio/webm",
+    "audio/mp4",
+    "audio/mpeg",
+    "audio/wav",
+    "audio/x-wav",
+    "audio/ogg",
+    "video/webm",
+    "video/mp4",
+    "application/octet-stream",
+}
 
 
 def _caption_text(caption: dict) -> str:
     return caption.get("translation") or caption.get("transcript") or ""
+
+
+def _validate_audio_upload(file: UploadFile) -> None:
+    suffix = Path(file.filename or "").suffix.lower()
+    content_type = (file.content_type or "").split(";")[0].strip().lower()
+    extension_allowed = suffix in ALLOWED_AUDIO_EXTENSIONS
+    mime_allowed = content_type in ALLOWED_AUDIO_MIME_TYPES or content_type.startswith("audio/")
+    if not extension_allowed and not mime_allowed:
+        raise HTTPException(
+            status_code=415,
+            detail=(
+                "Unsupported audio file type. "
+                "Allowed formats include webm, mp4, wav, mp3, and ogg."
+            ),
+        )
+
+
+async def _write_upload_to_temp(file: UploadFile, temp_file) -> None:
+    total_bytes = 0
+    while True:
+        chunk = await file.read(1024 * 1024)
+        if not chunk:
+            break
+        total_bytes += len(chunk)
+        if total_bytes > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail="Audio upload is too large. Maximum size is 20MB.",
+            )
+        temp_file.write(chunk)
 
 
 def _format_timestamp(ms: int, *, vtt: bool = False) -> str:
@@ -170,12 +213,13 @@ async def transcribe_chunk(
     target_language: str = Form(config.DEFAULT_TARGET_LANGUAGE),
     translate: bool = Form(True),
 ) -> TranscriptionResponse:
+    _validate_audio_upload(file)
     suffix = Path(file.filename or "chunk.webm").suffix or ".webm"
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
     temp_path = Path(temp_file.name)
     try:
         with temp_file:
-            temp_file.write(await file.read())
+            await _write_upload_to_temp(file, temp_file)
 
         current_session_id = session_id or str(uuid4())
         session = database.ensure_session(
@@ -228,12 +272,13 @@ async def diagnose_chunk(
     file: UploadFile = File(...),
     source_language: str = Form(config.DEFAULT_SOURCE_LANGUAGE),
 ) -> DiagnosticResponse:
+    _validate_audio_upload(file)
     suffix = Path(file.filename or "diagnostic.webm").suffix or ".webm"
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
     temp_path = Path(temp_file.name)
     try:
         with temp_file:
-            temp_file.write(await file.read())
+            await _write_upload_to_temp(file, temp_file)
         speech = recognizer.transcribe(temp_path, source_language)
         return DiagnosticResponse(
             text=speech.text,
