@@ -51,11 +51,35 @@ export type TranscriptionResponse = {
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
+async function readErrorMessage(response: Response) {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    try {
+      const body = (await response.json()) as { detail?: unknown };
+      if (typeof body.detail === "string") {
+        return body.detail;
+      }
+      if (Array.isArray(body.detail)) {
+        return body.detail
+          .map((item) =>
+            typeof item === "object" && item && "msg" in item
+              ? String((item as { msg: unknown }).msg)
+              : String(item)
+          )
+          .join(", ");
+      }
+    } catch {
+      return `Request failed: ${response.status}`;
+    }
+  }
+  const message = await response.text();
+  return message || `Request failed: ${response.status}`;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, init);
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Request failed: ${response.status}`);
+    throw new Error(await readErrorMessage(response));
   }
   return response.json() as Promise<T>;
 }
@@ -88,8 +112,7 @@ export function deleteSession(sessionId: string) {
     method: "DELETE"
   }).then(async (response) => {
     if (!response.ok) {
-      const message = await response.text();
-      throw new Error(message || `Request failed: ${response.status}`);
+      throw new Error(await readErrorMessage(response));
     }
   });
 }
@@ -137,8 +160,7 @@ export async function exportSession(sessionId: string, format: string) {
     )}`
   );
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Request failed: ${response.status}`);
+    throw new Error(await readErrorMessage(response));
   }
   return response.blob();
 }
