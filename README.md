@@ -1,5 +1,7 @@
 # Local Voice Caption Translator
 
+![CI](https://github.com/akitouemura-lab/sns-webrtc-whisper-next-js-react/actions/workflows/ci.yml/badge.svg)
+
 ブラウザで取得した音声を数秒ごとに分割し、FastAPIバックエンドで文字起こし・翻訳・保存するリアルタイム音声字幕アプリです。
 
 リポジトリ名には `sns` / `webrtc` が含まれていますが、現在のMVPではWebRTCによる複数人通話機能は未実装です。本プロジェクトは、将来的なリアルタイム通話・画面共有コミュニケーション機能の前段階として、ブラウザ音声入力と画面共有音声をリアルタイムに文字起こし・翻訳・保存する基盤を実装したものです。
@@ -91,6 +93,17 @@
 - 本番環境向けの権限管理
 
 これらは今後の発展機能として想定しています。現在は、WebRTC通話アプリへ拡張するための音声取得・音声認識・翻訳・保存基盤に集中しています。
+
+---
+
+## Technical Challenges
+
+- リアルタイム性と安定性を両立するため、長時間音声を一括送信せず、MediaRecorderで短いチャンクに分割してFastAPIへ送信しています。これにより、途中失敗時の影響範囲を小さくしながら字幕を順次表示できます。
+- `faster-whisper` や `Argos Translate` は環境構築やモデル取得が重くなりやすいため、未導入環境でもモックモードでUI、API、SQLite保存、履歴、エクスポートを確認できる設計にしています。
+- 音声認識の失敗原因がユーザーに見えにくいため、マイク入力レベル、ピーク、診断結果、処理待ちキュー、エラーカードを表示し、Gain調整や入力デバイス確認など次の行動につなげやすくしました。
+- SQLiteにセッションと字幕を保存し、録音後に字幕編集、要約、単語抽出、`txt` / `md` / `srt` / `vtt` エクスポートへ展開できるようにしています。
+- Docker ComposeでBackendとFrontendを同時に起動できるようにし、重いAI依存を入れなくても公開リポジトリの動作確認がしやすい構成にしました。
+- GitHub ActionsでFrontendの型チェック・ビルド、Backendのimport確認・APIテストを自動化し、最低限の品質確認を継続できるようにしています。
 
 ---
 
@@ -288,6 +301,8 @@ The Docker setup uses `TRANSCRIBER_MODE=mock` by default so the full UI, API, SQ
 
 ## Environment Variables
 
+### Backend
+
 `backend/.env.example` をコピーして `backend/.env` を作成します。
 
 ```env
@@ -320,6 +335,18 @@ DEFAULT_TARGET_LANGUAGE=ja
 | `WHISPER_MIN_PEAK` | Minimum peak level for audio chunk processing |
 | `DEFAULT_SOURCE_LANGUAGE` | Default source language |
 | `DEFAULT_TARGET_LANGUAGE` | Default target language |
+
+### Frontend
+
+`frontend/.env.example` を必要に応じて `frontend/.env.local` にコピーします。
+
+```env
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
+
+| Variable | Description |
+| --- | --- |
+| `NEXT_PUBLIC_API_BASE_URL` | Frontendから接続するFastAPI backendのURL |
 
 ---
 
@@ -372,6 +399,14 @@ python -m pip install -r requirements.txt
 python -c "from app.main import app; print(app.title)"
 ```
 
+Backend tests:
+
+```powershell
+cd backend
+python -m pip install -r requirements-dev.txt
+python -m pytest
+```
+
 ---
 
 ## CI
@@ -383,6 +418,7 @@ GitHub Actions runs the following checks:
 - Next.js production build
 - Backend dependency installation
 - FastAPI app import check
+- Backend API tests with pytest
 
 Optional AI dependencies are intentionally not required in CI because `faster-whisper`, `Argos Translate`, and their model files are heavy for a lightweight portfolio pipeline.
 
@@ -390,13 +426,20 @@ Optional AI dependencies are intentionally not required in CI because `faster-wh
 
 ## Roadmap
 
-- WebRTC-based multi-user calling
-- Real-time shared room UI
-- Speaker diarization
-- User authentication
-- Export management UI
-- More robust dictionary and vocabulary saving
-- Production deployment configuration
+- READMEに最新スクリーンショットとデモGIFを追加
+- 音声ファイルアップロード対応
+- Playwrightによる基本UIテスト追加
+- 議事録形式の要約強化
+- 実Whisper / Argos込みDocker構成の別プロファイル化
+- WebRTC通話連携
+- 話者分離
+- 認証・クラウド同期
+
+---
+
+## License
+
+This project is released under the MIT License. See [LICENSE](LICENSE) for details.
 
 ---
 
