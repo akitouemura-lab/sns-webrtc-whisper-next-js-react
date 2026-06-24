@@ -32,6 +32,11 @@ class SessionUpdate(BaseModel):
     title: str
 
 
+class CaptionUpdate(BaseModel):
+    transcript: str
+    translation: str | None = None
+
+
 class TranscriptionResponse(BaseModel):
     session: Session
     caption: Caption

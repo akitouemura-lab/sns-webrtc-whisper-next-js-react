@@ -56,6 +56,8 @@
 - SQLiteによるセッション・字幕保存
 - セッション履歴表示
 - セッション名編集
+- 字幕の誤認識を後から修正できる字幕編集
+- 不要になった履歴を整理できるセッション削除
 - 履歴検索
 - 要約タイプ選択
   - 通常要約
@@ -248,6 +250,30 @@ Frontend:
 ```text
 http://127.0.0.1:3000
 ```
+
+---
+
+## Docker
+
+Docker Compose can start both the FastAPI backend and the Next.js frontend:
+
+```powershell
+docker compose up --build
+```
+
+The frontend is available at:
+
+```text
+http://localhost:3000
+```
+
+The backend API is available at:
+
+```text
+http://localhost:8000
+```
+
+The Docker setup uses `TRANSCRIBER_MODE=mock` by default so the full UI, API, SQLite persistence, history, summaries, and exports can be demonstrated without downloading heavy Whisper or Argos Translate dependencies. For real local transcription and translation, use the local setup steps and install `requirements-optional.txt`.
 
 ---
 

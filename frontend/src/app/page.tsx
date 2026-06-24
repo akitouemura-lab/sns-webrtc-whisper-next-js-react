@@ -8,12 +8,14 @@ import {
   Session,
   VocabularyItem,
   diagnoseAudioChunk,
+  deleteSession,
   exportSession,
   getCaptions,
   getHealth,
   getSessions,
   getVocabulary,
   summarizeSession,
+  updateCaption,
   updateSessionTitle,
   uploadAudioChunk
 } from "@/lib/api";
@@ -57,6 +59,11 @@ type DiagnosticReport = DiagnosticResponse & {
   deviceLabel: string;
   averageLevel: number;
   peakLevel: number;
+};
+
+type CaptionDraft = {
+  transcript: string;
+  translation: string;
 };
 
 function pickMimeType() {
@@ -108,6 +115,12 @@ export default function Home() {
   const [summaryStyle, setSummaryStyle] = useState("brief");
   const [sessionSearch, setSessionSearch] = useState("");
   const [editingTitle, setEditingTitle] = useState("");
+  const [editingCaptionId, setEditingCaptionId] = useState<number | null>(null);
+  const [captionDraft, setCaptionDraft] = useState<CaptionDraft>({
+    transcript: "",
+    translation: ""
+  });
+  const [isDeletingSession, setIsDeletingSession] = useState(false);
   const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([]);
   const [diagnostic, setDiagnostic] = useState<DiagnosticReport | null>(null);
   const [error, setError] = useState("");
@@ -422,6 +435,8 @@ export default function Home() {
     setSummary("");
     setVocabulary([]);
     setDiagnostic(null);
+    setEditingCaptionId(null);
+    setCaptionDraft({ transcript: "", translation: "" });
     setCaptions([]);
     setPeakMicLevel(0);
     setPipelineStatus("requesting");
@@ -601,6 +616,8 @@ export default function Home() {
     setSummary("");
     setVocabulary([]);
     setDiagnostic(null);
+    setEditingCaptionId(null);
+    setCaptionDraft({ transcript: "", translation: "" });
     setSessionId(id);
     activeSessionRef.current = id;
     const data = await getCaptions(id);
@@ -625,6 +642,72 @@ export default function Home() {
     setSessions((items) =>
       items.map((item) => (item.id === updated.id ? updated : item))
     );
+  };
+
+  const startCaptionEdit = (caption: Caption) => {
+    setEditingCaptionId(caption.id);
+    setCaptionDraft({
+      transcript: caption.transcript,
+      translation: caption.translation ?? ""
+    });
+  };
+
+  const cancelCaptionEdit = () => {
+    setEditingCaptionId(null);
+    setCaptionDraft({ transcript: "", translation: "" });
+  };
+
+  const saveCaptionEdit = async (captionId: number) => {
+    const transcript = captionDraft.transcript.trim();
+    if (!transcript) {
+      setError("Transcript is required.");
+      return;
+    }
+    setError("");
+    try {
+      const updated = await updateCaption(captionId, {
+        transcript,
+        translation: captionDraft.translation.trim() || null
+      });
+      setCaptions((items) =>
+        items.map((item) => (item.id === updated.id ? updated : item))
+      );
+      cancelCaptionEdit();
+      await refreshSessions();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Caption could not be saved.");
+    }
+  };
+
+  const removeActiveSession = async () => {
+    if (!activeSession || isRecording || isDeletingSession) {
+      return;
+    }
+    const confirmed = window.confirm(
+      `Delete "${activeSession.title}" and its captions?`
+    );
+    if (!confirmed) {
+      return;
+    }
+    setError("");
+    setIsDeletingSession(true);
+    try {
+      await deleteSession(activeSession.id);
+      const nextSessionId = crypto.randomUUID();
+      setSessionId(nextSessionId);
+      activeSessionRef.current = nextSessionId;
+      setCaptions([]);
+      setSummary("");
+      setVocabulary([]);
+      setDiagnostic(null);
+      setEditingTitle("");
+      cancelCaptionEdit();
+      await refreshSessions();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Session could not be deleted.");
+    } finally {
+      setIsDeletingSession(false);
+    }
   };
 
   const loadVocabulary = async () => {
@@ -899,6 +982,13 @@ export default function Home() {
               <button onClick={saveSessionTitle} disabled={!activeSession}>
                 名前を保存
               </button>
+              <button
+                className="danger"
+                onClick={removeActiveSession}
+                disabled={!activeSession || isRecording || isDeletingSession}
+              >
+                {isDeletingSession ? "削除中" : "削除"}
+              </button>
             </div>
 
             <div className="caption-list">
@@ -912,9 +1002,52 @@ export default function Home() {
                       <span>{caption.provider}</span>
                       <span>{caption.source_language}</span>
                     </div>
-                    <strong>{caption.translation || caption.transcript}</strong>
-                    {caption.translation ? <p>{caption.transcript}</p> : null}
-                    {caption.warning ? <p className="warning">{caption.warning}</p> : null}
+                    {editingCaptionId === caption.id ? (
+                      <div className="caption-editor">
+                        <label className="field">
+                          <span>Transcript</span>
+                          <textarea
+                            value={captionDraft.transcript}
+                            onChange={(event) =>
+                              setCaptionDraft((draft) => ({
+                                ...draft,
+                                transcript: event.target.value
+                              }))
+                            }
+                          />
+                        </label>
+                        <label className="field">
+                          <span>Translation</span>
+                          <textarea
+                            value={captionDraft.translation}
+                            onChange={(event) =>
+                              setCaptionDraft((draft) => ({
+                                ...draft,
+                                translation: event.target.value
+                              }))
+                            }
+                          />
+                        </label>
+                        <div className="button-row compact">
+                          <button
+                            className="primary"
+                            onClick={() => saveCaptionEdit(caption.id)}
+                          >
+                            保存
+                          </button>
+                          <button onClick={cancelCaptionEdit}>キャンセル</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <strong>{caption.translation || caption.transcript}</strong>
+                        {caption.translation ? <p>{caption.transcript}</p> : null}
+                        {caption.warning ? <p className="warning">{caption.warning}</p> : null}
+                        <div className="button-row compact">
+                          <button onClick={() => startCaptionEdit(caption)}>編集</button>
+                        </div>
+                      </>
+                    )}
                   </article>
                 ))
               )}

@@ -247,6 +247,49 @@ def update_session_title(session_id: str, title: str) -> dict[str, Any] | None:
         return dict(row) if row else None
 
 
+def delete_session(session_id: str) -> bool:
+    with connect() as db:
+        existing = db.execute("SELECT id FROM sessions WHERE id = ?", (session_id,)).fetchone()
+        if existing is None:
+            return False
+        db.execute("DELETE FROM captions WHERE session_id = ?", (session_id,))
+        db.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        return True
+
+
+def update_caption(
+    *,
+    caption_id: int,
+    transcript: str,
+    translation: str | None,
+) -> dict[str, Any] | None:
+    now = utc_now()
+    with connect() as db:
+        existing = db.execute(
+            "SELECT session_id FROM captions WHERE id = ?",
+            (caption_id,),
+        ).fetchone()
+        if existing is None:
+            return None
+        db.execute(
+            """
+            UPDATE captions
+            SET transcript = ?, translation = ?, warning = NULL
+            WHERE id = ?
+            """,
+            (transcript, translation, caption_id),
+        )
+        db.execute(
+            "UPDATE sessions SET updated_at = ? WHERE id = ?",
+            (now, existing["session_id"]),
+        )
+        row = db.execute(
+            "SELECT * FROM captions WHERE id = ?",
+            (caption_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
 def safe_unlink(path: Path) -> None:
     try:
         path.unlink(missing_ok=True)

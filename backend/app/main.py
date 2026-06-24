@@ -13,6 +13,7 @@ from fastapi.responses import Response
 from . import config, database
 from .schemas import (
     Caption,
+    CaptionUpdate,
     DiagnosticResponse,
     ServiceStatus,
     Session,
@@ -315,11 +316,34 @@ def update_session(session_id: str, payload: SessionUpdate) -> Session:
     return Session(**row)
 
 
+@app.delete("/api/sessions/{session_id}", status_code=204)
+def delete_session(session_id: str) -> Response:
+    if not database.delete_session(session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+    return Response(status_code=204)
+
+
 @app.get("/api/sessions/{session_id}/captions", response_model=list[Caption])
 def get_captions(session_id: str) -> list[Caption]:
     if database.get_session(session_id) is None:
         raise HTTPException(status_code=404, detail="Session not found")
     return [Caption(**row) for row in database.list_captions(session_id)]
+
+
+@app.patch("/api/captions/{caption_id}", response_model=Caption)
+def update_caption(caption_id: int, payload: CaptionUpdate) -> Caption:
+    transcript = payload.transcript.strip()
+    translation = payload.translation.strip() if payload.translation else None
+    if not transcript:
+        raise HTTPException(status_code=400, detail="Transcript is required")
+    row = database.update_caption(
+        caption_id=caption_id,
+        transcript=transcript,
+        translation=translation,
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Caption not found")
+    return Caption(**row)
 
 
 @app.post("/api/sessions/{session_id}/summary", response_model=SummaryResponse)

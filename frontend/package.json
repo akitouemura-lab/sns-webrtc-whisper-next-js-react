@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "type-check": "next typegen && tsc --noEmit"
+    "pretype-check": "next typegen",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "next": "16.2.9",

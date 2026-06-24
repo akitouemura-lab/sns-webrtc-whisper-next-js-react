@@ -83,6 +83,28 @@ export function updateSessionTitle(sessionId: string, title: string) {
   });
 }
 
+export function deleteSession(sessionId: string) {
+  return fetch(`${API_BASE_URL}/api/sessions/${sessionId}`, {
+    method: "DELETE"
+  }).then(async (response) => {
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(message || `Request failed: ${response.status}`);
+    }
+  });
+}
+
+export function updateCaption(
+  captionId: number,
+  payload: { transcript: string; translation: string | null }
+) {
+  return request<Caption>(`/api/captions/${captionId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+}
+
 export function summarizeSession(sessionId: string, style = "brief") {
   return request<{ session_id: string; summary: string }>(
     `/api/sessions/${sessionId}/summary?style=${encodeURIComponent(style)}`,

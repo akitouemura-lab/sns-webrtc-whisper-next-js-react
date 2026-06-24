@@ -1,0 +1,25 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    environment:
+      APP_NAME: Voice Caption Translator
+      DATABASE_PATH: storage/captions.sqlite3
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      TRANSCRIBER_MODE: mock
+      DEFAULT_SOURCE_LANGUAGE: auto
+      DEFAULT_TARGET_LANGUAGE: ja
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/storage:/app/storage
+
+  frontend:
+    build:
+      context: ./frontend
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend

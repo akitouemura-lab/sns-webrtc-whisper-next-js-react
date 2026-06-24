@@ -35,7 +35,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -134,14 +135,29 @@ select,
 input[type="search"],
 input[type="text"],
 input[type="number"],
-input[type="range"] {
+input[type="range"],
+textarea {
   width: 100%;
-  min-height: 40px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
   color: var(--ink);
+}
+
+select,
+input[type="search"],
+input[type="text"],
+input[type="number"],
+input[type="range"] {
+  min-height: 40px;
   padding: 0 10px;
+}
+
+textarea {
+  min-height: 88px;
+  resize: vertical;
+  padding: 10px 12px;
+  line-height: 1.5;
 }
 
 input[type="range"] {
@@ -336,6 +352,11 @@ input[type="text"] {
 .caption-row {
   display: grid;
   gap: 8px;
+}
+
+.caption-editor {
+  display: grid;
+  gap: 10px;
 }
 
 .vocabulary-row {
